@@ -4,6 +4,12 @@
 /*--------------------------------------------------------------*/
 /*--------------------------------------------------------------*/
 
+/*modified version to output per site allele counts*/
+
+/*the mpileup file must be generated with samtools mpileup -f [reference.fasta]*/
+
+/*window size fixed to 1 (="per site")*/
+
 /* Code to extract pool statistics (theta, neutrality tests) 
 from pileup data and a fasta file representing the outgroup sequence */
 
@@ -310,16 +316,21 @@ int read_line_pileup(FILE * bam_file, unsigned long min_qual, unsigned long min_
       
 
   };
-  
-  //  *ref_base=base_to_num(crefbase);
+  //samtools mpileup must be run with -f option (reference genome)
+  //reference base as in reference genome
+  *ref_base=base_to_num(crefbase);
   *n_alt_allele = 0;
   *n_ref=0; //n_alt[0];
-  for(count_i=0;count_i<5;count_i++){
-    if (*n_ref < n_alt[count_i]) {
-      *n_ref = n_alt[count_i]; *ref_base=count_i;
-    };
-  };
-  for(count_i=0;count_i<5;count_i++){
+  //reference base no longer most common base
+  //for(count_i=0;count_i<5;count_i++){
+  //  if (*n_ref < n_alt[count_i]) {
+  //    *n_ref = n_alt[count_i]; *ref_base=count_i;
+  //  };
+  //};
+  //number of reference bases based on reference genome
+  *n_ref = n_alt[0];
+  //alternative alle is most common base, excluding the one in reference genome
+  for(count_i=1;count_i<5;count_i++){
     if ((*n_alt_allele < n_alt[count_i])&&(count_i!=*ref_base)) {
       *n_alt_allele = n_alt[count_i]; *alt_base=count_i;
     };
@@ -692,12 +703,15 @@ int main(int argc, char *argv[])
   char strand, feature[256], *gff_file_name;
   unsigned long psyn, pnon, dsyn, dnon;
   
-  
+  //interger for presence in vcf (0 or 1)
+  int called;
   
   /* Main part of the program */
   
   /* Read arguments */
-  window_size=0;
+  //fix window size to 1
+  //window_size=0;
+  window_size=1;
   n01=0;
   n02=0;
   min_cov=4;
@@ -719,7 +733,8 @@ int main(int argc, char *argv[])
   for(arg_i=1;arg_i<argc-1;arg_i++)
     {
       if (strcmp(argv[arg_i], "-n") == 0) {arg_i++; sscanf(argv[arg_i], "%u", &n01); }
-      else if (strcmp(argv[arg_i], "-l") == 0) {arg_i++; sscanf(argv[arg_i], "%lu", &window_size); }
+      //window size is fixed to 1
+      //else if (strcmp(argv[arg_i], "-l") == 0) {arg_i++; sscanf(argv[arg_i], "%lu", &window_size); }
       else if (strcmp(argv[arg_i], "-cov") == 0) {arg_i++; sscanf(argv[arg_i], "%lf", &input_coverage1); }
 //      else if (strcmp(argv[arg_i], "-n2") == 0) {arg_i++; sscanf(argv[arg_i], "%u", &n02); }
       else if (strcmp(argv[arg_i], "-mincov") == 0) {arg_i++; sscanf(argv[arg_i], "%lu", &min_cov); }
@@ -1022,8 +1037,9 @@ int main(int argc, char *argv[])
   
   //read_line_ms(bam_file1, window_size, n01, &n_pos1, int_positions1, array_counts1);
   
-  fprintf(output_stat1, "window\tlength\tlength_outgroup\tread_depth\tS\tWatterson\tPi\tTajima_D\tvar_S\tvar_Watterson\tunnorm_FayWu_H\tFayWu_H\tdiv\tnonsyn_pol\tsyn_pol\tnonsyn_div\tsyn_div\talpha\n");
-	  
+  //fprintf(output_stat1, "window\tlength\tlength_outgroup\tread_depth\tS\tWatterson\tPi\tTajima_D\tvar_S\tvar_Watterson\tunnorm_FayWu_H\tFayWu_H\tdiv\tnonsyn_pol\tsyn_pol\tnonsyn_div\tsyn_div\talpha\n");
+  //header for new output variables
+  fprintf(output_stat1, "window\tlength\tinVCF\trd\tn_ref\tn_alt\tref_base\n");	  
   printf("Computing statistics for the window:");
   /* Run across all bases */
   for(pos=1;(ct1!=EOF); pos++)
@@ -1062,6 +1078,9 @@ int main(int argc, char *argv[])
 	  dsyn=0;
 	  pnon=0;
 	  dnon=0;
+      
+      //set presence in vcf to 0
+      called=0;
 	  
 /*	  test2.cov=0;
 	  test2.l=0;
@@ -1138,15 +1157,20 @@ int main(int argc, char *argv[])
 	  } else {
 	    out_base=0;
 	  };
-	  if((ext_snps==1)&&(pos_snp!=pos)) {
-	    if (n_ref1>=n_alt_allele1){
-	      n_ref1+=n_alt_allele1;
-	      n_alt_allele1=0;
-	    } else {
-	      n_alt_allele1+=n_ref1;
-	      n_ref1=0;
-	    };
-	  };
+	  if((ext_snps==1)&&(pos_snp!=pos)){
+      //if not in vcf, set presence to 0
+            called=0;
+            //if (n_ref1>=n_alt_allele1){
+	    //n_ref1+=n_alt_allele1;
+	    //n_alt_allele1=0;
+	    //} else {
+	    //  n_alt_allele1+=n_ref1;
+	    //  n_ref1=0;
+	    //};
+      //if in vcf, set presence to 1
+	  } else {
+            called=1;
+          };
 	  //printf("out base: %u\n",out_base); //debug
 	  //printf("sample 1: "); //debug
 	  if (rd1>=max(min_cov,2*m_bar+2))
@@ -1291,33 +1315,38 @@ int main(int argc, char *argv[])
 	  var_h=var_h*theta1_val*theta1_val;
 	  
 	  ////fprintf(output_stat1, "window %u\n",n_window); //debug COMPLETE!!!!!!!!!!!!!!!!
-	  //  DEB(printf(output_stat1, "%u\t%u\t%u\t%f\t%u\t%f\t%f\t%f\t%f\n", n_window, test1.l, test1.l_out, cov1_val, test1.s, theta1_val, pi1_val, d1_val, h1_val)); 
+	  //  DEB(printf(output_stat1, "%u\t%u\t%u\t%f\t%u\t%f\t%f\t%f\t%f\n", n_window, test1.l, test1.l_out, cov1_val, test1.s, theta1_val, pi1_val, d1_val, h1_val));
+      //modify output
 	  //	  fprintf(output_stat1, "%lu\t%lu\t%lu\t%f\t%lu\t%f\t%f\t%f\t%f\t%f\n", n_window, test1.l, test1.l_out, cov1_val, test1.s, theta1_val, pi1_val, d1_val, h1_val,test1.den_t); 
-	  fprintf(output_stat1, "%lu\t%lu\t%lu",n_window, test1.l, test1.l_out);
-	  if (test1.l>0) {
-	  fprintf(output_stat1, "\t%f\t%lu\t%f\t%f\t%f\t%f\t%f", cov1_val, test1.s, theta1_val, pi1_val, d1_val/sqrt(var0_d+var_d), var0_s+var_s, (var0_s+var_s)/(test1.den_t*test1.den_t)); 
-	  } else {
-	  fprintf(output_stat1, "\tNA\t0\tNA\tNA\tNA\tNA\tNA");  
-	  };
-	  if (test1.l_out>0) {
-	  fprintf(output_stat1, "\t%f\t%f\t%f", h1_val, h1_val/sqrt(var0_h+var_h), div_val);	  
-	  } else { 
-	  fprintf(output_stat1, "\tNA\tNA\tNA");	    
-	  };
-	  if (if_gff==1) {
-	  fprintf(output_stat1, "\t%lu\t%lu\t%lu\t%lu", pnon, psyn, dnon, dsyn);
-	  if(dsyn*pnon==0){
-	    if(psyn*dnon==0){
-	      fprintf(output_stat1, "\tNA");	    
-	    } else {
-	      fprintf(output_stat1, "\tInf");	      
-	    };
-	  } else {	    
-	    fprintf(output_stat1, "\t%f", 1-(double)(dsyn*pnon)/(double)(psyn*dnon));
-	  };
-	  } else { 
-	  fprintf(output_stat1, "\tNA\tNA\tNA\tNA\tNA");	    
-	  };
+	  //fprintf(output_stat1, "%lu\t%lu\t%lu",n_window, test1.l, test1.l_out);
+      //print window number (= position) and length (0 (if it didn't pass a filter) or 1)
+	  fprintf(output_stat1, "%lu\t%lu",n_window, test1.l);
+          //if (test1.l>0) {
+	  //fprintf(output_stat1, "\t%f\t%lu\t%f\t%f\t%f\t%f\t%f", cov1_val, test1.s, theta1_val, pi1_val, d1_val/sqrt(var0_d+var_d), var0_s+var_s, (var0_s+var_s)/(test1.den_t*test1.den_t)); 
+	  //} else {
+	  //fprintf(output_stat1, "\tNA\t0\tNA\tNA\tNA\tNA\tNA");  
+	  //};
+	  //if (test1.l_out>0) {
+	  //fprintf(output_stat1, "\t%f\t%f\t%f", h1_val, h1_val/sqrt(var0_h+var_h), div_val);	  
+	  //} else { 
+	  //fprintf(output_stat1, "\tNA\tNA\tNA");	    
+	  //};
+	  //if (if_gff==1) {
+	  //fprintf(output_stat1, "\t%lu\t%lu\t%lu\t%lu", pnon, psyn, dnon, dsyn);
+	  //if(dsyn*pnon==0){
+	  //  if(psyn*dnon==0){
+	  //    fprintf(output_stat1, "\tNA");	    
+	  //} else {
+	  //    fprintf(output_stat1, "\tInf");	      
+	  //  };
+	  //} else {	    
+	  //  fprintf(output_stat1, "\t%f", 1-(double)(dsyn*pnon)/(double)(psyn*dnon));
+	  //};
+	  //} else { 
+	  //fprintf(output_stat1, "\tNA\tNA\tNA\tNA\tNA");	    
+	  //};
+      //print presence status in vcf, read depth in bam, number of reference bases, number of alternative bases (of most common alternative) and reference base (as number: A=1, C=2, G=3, T=4)
+      fprintf(output_stat1, "\t%i\t%i\t%i\t%i\t%i", called, rd1, n_ref1, n_alt_allele1, ref_base1);
 	  DEB(fprintf(output_stat1, "\tvars\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f",var0_s,var_s,var0_s/(test1.den_t*test1.den_t+0.000001),var_s/(test1.den_t*test1.den_t+0.000001),var0_d/(theta1_val),var_d/(theta1_val*theta1_val),var0_h/(theta1_val),var_h/(theta1_val*theta1_val));)
 	  fprintf(output_stat1, "\n");	    
 	  

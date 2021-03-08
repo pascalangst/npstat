@@ -703,8 +703,9 @@ int main(int argc, char *argv[])
   char strand, feature[256], *gff_file_name;
   unsigned long psyn, pnon, dsyn, dnon;
   
-  //interger for presence in vcf (0 or 1)
+  //interger for presence in vcf (0 or 1) and frequency of reference allele
   int called;
+  float ref_freq;
   
   /* Main part of the program */
   
@@ -1039,7 +1040,7 @@ int main(int argc, char *argv[])
   
   //fprintf(output_stat1, "window\tlength\tlength_outgroup\tread_depth\tS\tWatterson\tPi\tTajima_D\tvar_S\tvar_Watterson\tunnorm_FayWu_H\tFayWu_H\tdiv\tnonsyn_pol\tsyn_pol\tnonsyn_div\tsyn_div\talpha\n");
   //header for new output variables
-  fprintf(output_stat1, "window\tlength\tinVCF\trd\tn_ref\tn_alt\tref_base\n");	  
+  fprintf(output_stat1, "window\tlength\tinVCF\trd\tn_ref\tn_alt\tref_frequency\tref_base\n");	  
   printf("Computing statistics for the window:");
   /* Run across all bases */
   for(pos=1;(ct1!=EOF); pos++)
@@ -1081,6 +1082,8 @@ int main(int argc, char *argv[])
       
       //set presence in vcf to 0
       called=0;
+      //set frequency of referece allele to 1
+      ref_freq=1;
 	  
 /*	  test2.cov=0;
 	  test2.l=0;
@@ -1229,7 +1232,9 @@ int main(int argc, char *argv[])
 	      extract_stats(&test2, &comb2, n02, n_ref2, n_alt_allele2, rd2, n_alt_2, ref_base2, alt_base2, out_base, m_bar);
 	      oldpos=pos;
 	    };*/
-	};
+      //calculate reference allele frequency
+      ref_freq=n_ref1/(float)rd1;	
+      };
       /* Print output */
       ct1=fgetc(bam_file1); ungetc(ct1,bam_file1);
       
@@ -1345,8 +1350,8 @@ int main(int argc, char *argv[])
 	  //} else { 
 	  //fprintf(output_stat1, "\tNA\tNA\tNA\tNA\tNA");	    
 	  //};
-      //print presence status in vcf, read depth in bam, number of reference bases, number of alternative bases (of most common alternative) and reference base (as number: A=1, C=2, G=3, T=4)
-      fprintf(output_stat1, "\t%i\t%i\t%i\t%i\t%i", called, rd1, n_ref1, n_alt_allele1, ref_base1);
+      //print presence status in vcf, read depth in bam, number of reference bases, number of alternative bases (of most common alternative), frequency of reference allele  and reference base (as number: A=1, C=2, G=3, T=4)
+      fprintf(output_stat1, "\t%i\t%i\t%i\t%i\t%lf\t%i", called, rd1, n_ref1, n_alt_allele1, ref_freq, ref_base1);
 	  DEB(fprintf(output_stat1, "\tvars\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f",var0_s,var_s,var0_s/(test1.den_t*test1.den_t+0.000001),var_s/(test1.den_t*test1.den_t+0.000001),var0_d/(theta1_val),var_d/(theta1_val*theta1_val),var0_h/(theta1_val),var_h/(theta1_val*theta1_val));)
 	  fprintf(output_stat1, "\n");	    
 	  

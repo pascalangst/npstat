@@ -1042,7 +1042,7 @@ int main(int argc, char *argv[])
   //fprintf(output_stat1, "window\tlength\tlength_outgroup\tread_depth\tS\tWatterson\tPi\tTajima_D\tvar_S\tvar_Watterson\tunnorm_FayWu_H\tFayWu_H\tdiv\tnonsyn_pol\tsyn_pol\tnonsyn_div\tsyn_div\talpha\n");
   //header for new output variables
   fprintf(output_stat1, "window\tlength\tinVCF\trd\tn_ref\tn_alt\tref_frequency\tref_base\n");	  
-  printf("Computing statistics for the window:");
+  printf("Counting...");
   /* Run across all bases */
   for(pos=1;(ct1!=EOF); pos++)
     {
@@ -1071,16 +1071,17 @@ int main(int argc, char *argv[])
 	  test1.den_hl=0;
 	  test1.den_hq=0;
 	  div=0;
-	  for(rd=1;rd<=max_cov; rd++){
-	    vec_rd[rd-1]=0;
+//try to increase speed
+//	  for(rd=1;rd<=max_cov; rd++){
+//	    vec_rd[rd-1]=0;
 //	    vec_s[rd-1]=0;
 //	    vec_p[rd-1]=0;
 //	    vec_h[rd-1]=0;
-	  };
-	  psyn=0;
-	  dsyn=0;
-	  pnon=0;
-	  dnon=0;
+//	  };
+//	  psyn=0;
+//	  dsyn=0;
+//	  pnon=0;
+//	  dnon=0;
       
       //set presence in vcf to 0
       called=0;
@@ -1178,35 +1179,36 @@ int main(int argc, char *argv[])
           };
 	  //printf("out base: %u\n",out_base); //debug
 	  //printf("sample 1: "); //debug
-	  if (rd1>=max(min_cov,2*m_bar+2))
-	    {
-	      if (if_gff==1){
-	      if (cds_start<=pos){
-		if(strand=='+'){
-		  frame=((pos-cds_start+3-phase_cds)%3)+1;
-		} else {
-		  if(strand=='-'){
-		    frame=((cds_end+3-phase_cds-pos)%3)+1;
-		  } else frame=0;
-		};
-	      } else frame=0;
-	      };
-            extract_stats(&test1, &comb1, n01, n_ref1, n_alt_allele1, rd1, n_alt_1, ref_base1, alt_base1, out_base, m_bar);//+rd1*(pos_snp!=pos));
-	      if(out_base!=0){
-	      if (((n_alt_allele1>=rd1-m_bar)&&(alt_base1!=out_base))||((n_ref1>=rd1-m_bar)&&(ref_base1!=out_base))){
-		div++;
-		if (if_gff==1){
-		  if (frame==3) dsyn++;
-		  if ((frame==1)||(frame==2)) dnon++;
-		};
-	      };
-	      if ((if_gff==1)&&(n_alt_allele1>m_bar)&&(n_ref1>m_bar)){
-		if (frame==3) psyn++;
-		if ((frame==1)||(frame==2)) pnon++;
-	      };
-	      };
-	      vec_rd[rd1-1]++;
-	    };
+//try to improve speed
+//	  if (rd1>=max(min_cov,2*m_bar+2))
+//	    {
+//	      if (if_gff==1){
+//	      if (cds_start<=pos){
+//		if(strand=='+'){
+//		  frame=((pos-cds_start+3-phase_cds)%3)+1;
+//		} else {
+//		  if(strand=='-'){
+//		    frame=((cds_end+3-phase_cds-pos)%3)+1;
+//		  } else frame=0;
+//		};
+//	      } else frame=0;
+//	      };
+//            extract_stats(&test1, &comb1, n01, n_ref1, n_alt_allele1, rd1, n_alt_1, ref_base1, alt_base1, out_base, m_bar);//+rd1*(pos_snp!=pos));
+//	      if(out_base!=0){
+//	      if (((n_alt_allele1>=rd1-m_bar)&&(alt_base1!=out_base))||((n_ref1>=rd1-m_bar)&&(ref_base1!=out_base))){
+//		div++;
+//		if (if_gff==1){
+//		  if (frame==3) dsyn++;
+//		  if ((frame==1)||(frame==2)) dnon++;
+//		};
+//	      };
+//	      if ((if_gff==1)&&(n_alt_allele1>m_bar)&&(n_ref1>m_bar)){
+//		if (frame==3) psyn++;
+//		if ((frame==1)||(frame==2)) pnon++;
+//	      };
+//	      };
+//	      vec_rd[rd1-1]++;
+//	    };
 	  
 	  
 	  /*if ((pos_base2==pos)&&(rd2>=min_cov)&&(rd2<=max_cov))
@@ -1239,87 +1241,87 @@ int main(int argc, char *argv[])
       };
       /* Print output */
       ct1=fgetc(bam_file1); ungetc(ct1,bam_file1);
-      
       if ((pos==(n_window*window_size))||(ct1==EOF))
 	{
-	  double theta1_val, pi1_val, d1_val, h1_val, theta2_val, pi2_val, d2_val, h2_val, pia_val, fst_val, cov1_val, cov2_val, div_val, var_h, var_d, var_s, var0_s, var0_d, var0_h, vk_s[n01-1], vk_d[n01-1], vk_h[n01-1];
-	  int k;
-	  DEB(printf("printing output\n")); //debug
-	  
-	  var_s=0;
-	  var_d=0;
-	  var_h=0;
-	  var0_s=0;
-	  var0_d=0;
-	  var0_h=0;
-	  if ((test1.den_t>0)&&(test1.den_p>0)) {
-	  if (test1.den_hq>0) {
-	  for(k=1;k<n01;k++){
-	    vk_s[k-1]=0;
-	    vk_d[k-1]=0;
-	    vk_h[k-1]=0;
-	    for(rd=max(min_cov,2*m_bar+2);rd<=max_cov; rd++){
-	      vk_s[k-1]+=vec_rd[rd-1]*vec_s[(k-1)+(n01-1)*(rd-1)];
-	      vk_d[k-1]+=vec_rd[rd-1]*(vec_p[(k-1)+(n01-1)*(rd-1)]/test1.den_p-vec_s[(k-1)+(n01-1)*(rd-1)]/test1.den_t);
-	      vk_h[k-1]+=vec_rd[rd-1]*(vec_h[(k-1)+(n01-1)*(rd-1)]/test1.den_hq-vec_p[(k-1)+(n01-1)*(rd-1)]/test1.den_p);
-	    };
-	  };
-	  for(rd=max(min_cov,2*m_bar+2);rd<=max_cov; rd++){
-	      var0_s+=vec_rd[rd-1]*vec0_s[rd-1];
-	      var0_d+=vec_rd[rd-1]*vec0_d[rd-1];
-	      var0_h+=vec_rd[rd-1]*vec0_h[rd-1];
-	  };
-	  for(k=1;k<n01;k++){
-	    for(lt=1;lt<n01;lt++){
-	      var_s+=vk_s[k-1]*vk_s[lt-1]*covmat[(n01-1)*(lt-1)+k-1];
-	      var_d+=vk_d[k-1]*vk_d[lt-1]*covmat[(n01-1)*(lt-1)+k-1];
-	      var_h+=vk_h[k-1]*vk_h[lt-1]*covmat[(n01-1)*(lt-1)+k-1];
-	    };
-	  };
-	  var0_d=var0_d/(double)(test1.l*test1.l);
-	  var0_h=var0_h/(double)(test1.l_out*test1.l_out);
-	  } else { 
-	  for(k=1;k<n01;k++){
-	    vk_s[k-1]=0;
-	    vk_d[k-1]=0;
-	    for(rd=max(min_cov,2*m_bar+2);rd<=max_cov; rd++){
-	      vk_s[k-1]+=vec_rd[rd-1]*vec_s[(k-1)+(n01-1)*(rd-1)];
-	      vk_d[k-1]+=vec_rd[rd-1]*(vec_p[(k-1)+(n01-1)*(rd-1)]/test1.den_p-vec_s[(k-1)+(n01-1)*(rd-1)]/test1.den_t);
-	    };
-	  };
-	  for(rd=max(min_cov,2*m_bar+2);rd<=max_cov; rd++){
-	      var0_s+=vec_rd[rd-1]*vec0_s[rd-1];
-	      var0_d+=vec_rd[rd-1]*vec0_d[rd-1];
-	  };
-	  for(k=1;k<n01;k++){
-	    for(lt=1;lt<n01;lt++){
-	      var_s+=vk_s[k-1]*vk_s[lt-1]*covmat[(n01-1)*(lt-1)+k-1];
-	      var_d+=vk_d[k-1]*vk_d[lt-1]*covmat[(n01-1)*(lt-1)+k-1];
-	    };
-	  };
-	  var0_d=var0_d/(double)(test1.l*test1.l);
-	  };
-	  };
-	  
-	  if(test1.l>0) { cov1_val=(double)(test1.cov)/(double)(test1.l); } else { cov1_val=-1; };
-	  if(test1.den_t>0) { theta1_val=test1.num_t/test1.den_t; } else { theta1_val=-1; }; 
-	  if(test1.den_p>0) { pi1_val=test1.num_p/test1.den_p; } else { pi1_val=-1; }; 
-	  if((test1.den_t>0)&&(test1.den_p>0)) { d1_val=pi1_val-theta1_val; } else { d1_val=-1; }; 
-	  if((test1.den_p>0)&&(test1.den_hq>0)) { h1_val=test1.num_hq/test1.den_hq-pi1_val; } else { h1_val=-1; }; 
-	  if(test1.l_out>0) { div_val=(double)(div)/(double)(test1.l_out); } else { div_val=-1; };
-	  /*if(test2.l>0) { cov2_val=(double)(test2.cov)/(double)(test2.l); } else { cov2_val=0; };
-	  if(test2.den_t>0) { theta2_val=test2.num_t/test2.den_t; } else { theta2_val=0; }; 
-	  if(test2.den_p>0) { pi2_val=test2.num_p/test2.den_p; } else { pi2_val=0; }; 
-	  if((test2.den_t>0)&&(test2.den_p>0)) { d2_val=pi2_val-theta2_val; } else { d2_val=0; }; 
-	  if((test2.den_hl>0)&&(test2.den_hq>0)) { h2_val=test2.num_hq/test2.den_hq-test2.num_hl/test2.den_hl; } else { h2_val=0; };
-	  pia_val=(fst.gen_diff+fst.c_s*(pi1_val+pi2_val)/2)/(double)(fst.l);
-	  fst_val=1-2*(pi1_val+pi2_val)/(pi1_val+pi2_val+2*pia_val);*/
-	  var0_s=var0_s*theta1_val;
-	  var0_d=var0_d*theta1_val;
-	  var0_h=var0_h*theta1_val;
-	  var_s=var_s*theta1_val*theta1_val;
-	  var_d=var_d*theta1_val*theta1_val;
-	  var_h=var_h*theta1_val*theta1_val;
+//try to improve speed
+//	  double theta1_val, pi1_val, d1_val, h1_val, theta2_val, pi2_val, d2_val, h2_val, pia_val, fst_val, cov1_val, cov2_val, div_val, var_h, var_d, var_s, var0_s, var0_d, var0_h, vk_s[n01-1], vk_d[n01-1], vk_h[n01-1];
+//	  int k;
+//	  DEB(printf("printing output\n")); //debug
+//
+//	  var_s=0;
+//	  var_d=0;
+//	  var_h=0;
+//	  var0_s=0;
+//	  var0_d=0;
+//	  var0_h=0;
+//	  if ((test1.den_t>0)&&(test1.den_p>0)) {
+//	  if (test1.den_hq>0) {
+//	  for(k=1;k<n01;k++){
+//	    vk_s[k-1]=0;
+//	    vk_d[k-1]=0;
+//	    vk_h[k-1]=0;
+//	    for(rd=max(min_cov,2*m_bar+2);rd<=max_cov; rd++){
+//	      vk_s[k-1]+=vec_rd[rd-1]*vec_s[(k-1)+(n01-1)*(rd-1)];
+//	      vk_d[k-1]+=vec_rd[rd-1]*(vec_p[(k-1)+(n01-1)*(rd-1)]/test1.den_p-vec_s[(k-1)+(n01-1)*(rd-1)]/test1.den_t);
+//	      vk_h[k-1]+=vec_rd[rd-1]*(vec_h[(k-1)+(n01-1)*(rd-1)]/test1.den_hq-vec_p[(k-1)+(n01-1)*(rd-1)]/test1.den_p);
+//	    };
+//	  };
+//	  for(rd=max(min_cov,2*m_bar+2);rd<=max_cov; rd++){
+//	      var0_s+=vec_rd[rd-1]*vec0_s[rd-1];
+//	      var0_d+=vec_rd[rd-1]*vec0_d[rd-1];
+//	      var0_h+=vec_rd[rd-1]*vec0_h[rd-1];
+//	  };
+//	  for(k=1;k<n01;k++){
+//	    for(lt=1;lt<n01;lt++){
+//	      var_s+=vk_s[k-1]*vk_s[lt-1]*covmat[(n01-1)*(lt-1)+k-1];
+//	      var_d+=vk_d[k-1]*vk_d[lt-1]*covmat[(n01-1)*(lt-1)+k-1];
+//	      var_h+=vk_h[k-1]*vk_h[lt-1]*covmat[(n01-1)*(lt-1)+k-1];
+//	    };
+//	  };
+//	  var0_d=var0_d/(double)(test1.l*test1.l);
+//	  var0_h=var0_h/(double)(test1.l_out*test1.l_out);
+//	  } else {
+//	  for(k=1;k<n01;k++){
+//	    vk_s[k-1]=0;
+//	    vk_d[k-1]=0;
+//	    for(rd=max(min_cov,2*m_bar+2);rd<=max_cov; rd++){
+//	      vk_s[k-1]+=vec_rd[rd-1]*vec_s[(k-1)+(n01-1)*(rd-1)];
+//	      vk_d[k-1]+=vec_rd[rd-1]*(vec_p[(k-1)+(n01-1)*(rd-1)]/test1.den_p-vec_s[(k-1)+(n01-1)*(rd-1)]/test1.den_t);
+//	    };
+//	  };
+//	  for(rd=max(min_cov,2*m_bar+2);rd<=max_cov; rd++){
+//	      var0_s+=vec_rd[rd-1]*vec0_s[rd-1];
+//	      var0_d+=vec_rd[rd-1]*vec0_d[rd-1];
+//	  };
+//	  for(k=1;k<n01;k++){
+//	    for(lt=1;lt<n01;lt++){
+//	      var_s+=vk_s[k-1]*vk_s[lt-1]*covmat[(n01-1)*(lt-1)+k-1];
+//	      var_d+=vk_d[k-1]*vk_d[lt-1]*covmat[(n01-1)*(lt-1)+k-1];
+//	    };
+//	  };
+//	  var0_d=var0_d/(double)(test1.l*test1.l);
+//	  };
+//	  };
+//
+//	  if(test1.l>0) { cov1_val=(double)(test1.cov)/(double)(test1.l); } else { cov1_val=-1; };
+//	  if(test1.den_t>0) { theta1_val=test1.num_t/test1.den_t; } else { theta1_val=-1; };
+//	  if(test1.den_p>0) { pi1_val=test1.num_p/test1.den_p; } else { pi1_val=-1; };
+//	  if((test1.den_t>0)&&(test1.den_p>0)) { d1_val=pi1_val-theta1_val; } else { d1_val=-1; };
+//	  if((test1.den_p>0)&&(test1.den_hq>0)) { h1_val=test1.num_hq/test1.den_hq-pi1_val; } else { h1_val=-1; };
+//	  if(test1.l_out>0) { div_val=(double)(div)/(double)(test1.l_out); } else { div_val=-1; };
+//	  /*if(test2.l>0) { cov2_val=(double)(test2.cov)/(double)(test2.l); } else { cov2_val=0; };
+//	  if(test2.den_t>0) { theta2_val=test2.num_t/test2.den_t; } else { theta2_val=0; };
+//	  if(test2.den_p>0) { pi2_val=test2.num_p/test2.den_p; } else { pi2_val=0; };
+//	  if((test2.den_t>0)&&(test2.den_p>0)) { d2_val=pi2_val-theta2_val; } else { d2_val=0; };
+//	  if((test2.den_hl>0)&&(test2.den_hq>0)) { h2_val=test2.num_hq/test2.den_hq-test2.num_hl/test2.den_hl; } else { h2_val=0; };
+//	  pia_val=(fst.gen_diff+fst.c_s*(pi1_val+pi2_val)/2)/(double)(fst.l);
+//	  fst_val=1-2*(pi1_val+pi2_val)/(pi1_val+pi2_val+2*pia_val);*/
+//	  var0_s=var0_s*theta1_val;
+//	  var0_d=var0_d*theta1_val;
+//	  var0_h=var0_h*theta1_val;
+//	  var_s=var_s*theta1_val*theta1_val;
+//	  var_d=var_d*theta1_val*theta1_val;
+//	  var_h=var_h*theta1_val*theta1_val;
 	  
 	  ////fprintf(output_stat1, "window %u\n",n_window); //debug COMPLETE!!!!!!!!!!!!!!!!
 	  //  DEB(printf(output_stat1, "%u\t%u\t%u\t%f\t%u\t%f\t%f\t%f\t%f\n", n_window, test1.l, test1.l_out, cov1_val, test1.s, theta1_val, pi1_val, d1_val, h1_val));
@@ -1352,8 +1354,8 @@ int main(int argc, char *argv[])
 	  //} else { 
 	  //fprintf(output_stat1, "\tNA\tNA\tNA\tNA\tNA");	    
 	  //};
-      //print presence status in vcf, read depth in bam, number of reference bases, number of alternative bases (of most common alternative), frequency of reference allele  and reference base (as number: A=1, C=2, G=3, T=4)
-      fprintf(output_stat1, "\t%i\t%i\t%i\t%i\t%lf\t%i", called, rd1, n_ref1, n_alt_allele1, ref_freq, ref_base1);
+      //print presence status in vcf, read depth in bam, number of reference bases, number of alternative bases (of most common alternative) and frequency of reference allele
+      fprintf(output_stat1, "\t%i\t%i\t%i\t%i\t%lf", called, rd1, n_ref1, n_alt_allele1, ref_freq);
 	  DEB(fprintf(output_stat1, "\tvars\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f",var0_s,var_s,var0_s/(test1.den_t*test1.den_t+0.000001),var_s/(test1.den_t*test1.den_t+0.000001),var0_d/(theta1_val),var_d/(theta1_val*theta1_val),var0_h/(theta1_val),var_h/(theta1_val*theta1_val));)
 	  fprintf(output_stat1, "\n");	    
 	  

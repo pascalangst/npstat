@@ -8,9 +8,14 @@
 
 /*the mpileup file must be generated with samtools mpileup -f [reference.fasta]*/
 
-/*window size fixed to 1 (="per site")*/
+/*
+window size fixed to 1 (="per site")
+-snpfile, -minqual & -min/maxcov filter are supported
+other options, like -nlowfreq, are no longer supported for improvement in speed
+to filter for that modify the snpfile accordingly
+*/
 
-/* Code to extract pool statistics (theta, neutrality tests) 
+/* Code to extract pool statistics (theta, neutrality tests)
 from pileup data and a fasta file representing the outgroup sequence */
 
 /* Compile with
@@ -96,8 +101,8 @@ struct combinatorial_fst
 
 /* Declare functions */
 
-int generate_pool_covariance_matrix(double *covmat, double *covmatpool, int na, int nb, int n);
-int generate_covariance_matrix(double *covmat, int n);
+//int generate_pool_covariance_matrix(double *covmat, double *covmatpool, int na, int nb, int n);
+//int generate_covariance_matrix(double *covmat, int n);
 
 
 
@@ -106,14 +111,14 @@ int base_to_num(char base);
 
 int read_line_pileup(FILE * bam_file, unsigned long min_qual, unsigned long min_mqual, unsigned long * pos_base, unsigned long * n_ref, unsigned long * n_alt_allele, unsigned long * n_tot_allele, unsigned long * n_alt, int * ref_base, int *  alt_base) ;
 
-int extract_outgroup_base(FILE * fasta_out, unsigned long pos, unsigned long oldpos, int fasta_length);
+//int extract_outgroup_base(FILE * fasta_out, unsigned long pos, unsigned long oldpos, int fasta_length);
 
-void extract_stats(struct tests * test, struct combinatorial * comb, int n0, unsigned long n_ref, unsigned long n_alt_allele, unsigned long rd, unsigned long * n_alt, int ref_base, int alt_base, int out_base, int mb);
+//void extract_stats(struct tests * test, struct combinatorial * comb, int n0, unsigned long n_ref, unsigned long n_alt_allele, unsigned long rd, unsigned long * n_alt, int ref_base, int alt_base, int out_base, int mb);
 
-void extract_fst(struct fst_calc * fst, struct combinatorial_fst * combfst, int n01, unsigned long n_ref1, unsigned long n_alt_allele1, unsigned long rd1, unsigned long * n_alt_1, int ref_base1, int alt_base1, int n02, unsigned long n_ref2, unsigned long n_alt_allele2, unsigned long rd2, unsigned long * n_alt_2, int ref_base2, int alt_base2, int out_base, int mb);
+//void extract_fst(struct fst_calc * fst, struct combinatorial_fst * combfst, int n01, unsigned long n_ref1, unsigned long n_alt_allele1, unsigned long rd1, unsigned long * n_alt_1, int ref_base1, int alt_base1, int n02, unsigned long n_ref2, unsigned long n_alt_allele2, unsigned long rd2, unsigned long * n_alt_2, int ref_base2, int alt_base2, int out_base, int mb);
 
 //SNPS
-void extract_snps(unsigned long pos, FILE * output_snps, unsigned long * n_alt_1, unsigned long * n_alt_2, int mb);
+//void extract_snps(unsigned long pos, FILE * output_snps, unsigned long * n_alt_1, unsigned long * n_alt_2, int mb);
 
 /*--------------------------------------------------------------*/
 /*--------------------------------------------------------------*/
@@ -122,78 +127,78 @@ void extract_snps(unsigned long pos, FILE * output_snps, unsigned long * n_alt_1
 /*--------------------------------------------------------------*/
 
 
-int generate_covariance_matrix(double *covmat, int n) 
-{
-	double s,*a,*b,bb,bz,zz,a2,*xi_null2,*xi_b2;/*a[n+1],b[n]*/
-	int i,j,n2,ca,cb;
-	double theta; /*temporary*/
-	gsl_matrix *c,*invc,*sigma,*ct,*invct;
-	/*struct test_r0 *opt;*/
-	
-	if(n<2) return -10000;
-	
-	n2=ceil((double)n/2);
-	//debug
-	//assert(n2*2==n);
-	n=(int)n2*2;
-	
-	a = (double *)calloc((unsigned long int)n+1,sizeof(double));
-	b = (double *)calloc((unsigned long int)n,sizeof(double));
-	
-	a[0]=0;
-	a2=0;
-	for(i=2;i<=n+1;i++){
-		a[i-1]=a[i-2]+1/(double)(i-1);
-	}
-	for(i=1;i<n;i++){
-		a2+=1/(double)(i*i);
-		b[i-1]=2*(double)n*(a[n]-a[i-1])/(double)((n-i+1)*(n-i))-2/(double)(n-i);
-	}
-	b[n-1]=0;
-	sigma=gsl_matrix_alloc(n-1,n-1);
-	gsl_matrix_set_zero(sigma);
-	for (i=1;i<n;i++){
-		if (2*i<n) { 
-			gsl_matrix_set(sigma,i-1,i-1,b[i]); 
-		}  else {
-			if (2*i>n) { 
-				gsl_matrix_set(sigma,i-1,i-1,b[i-1]-1/gsl_pow_2((double)i)); 
-			}  else { 
-				gsl_matrix_set(sigma,i-1,i-1,(a[n-1]-a[i-1])*2/(double)(n-i)-1/gsl_pow_2((double)i));
-			}
-		}
-	}
-	for (i=1;i<n;i++){
-		for (j=1;j<i;j++){  
-			if (i+j<n) { 
-				gsl_matrix_set(sigma,i-1,j-1,(b[i]-b[i-1])/2); gsl_matrix_set(sigma,j-1,i-1,(b[i]-b[i-1])/2);
-			}  else {
-				if (i+j>n) { 
-					gsl_matrix_set(sigma,i-1,j-1,(b[j-1]-b[j])/2-1/(double)(i*j));  
-					gsl_matrix_set(sigma,j-1,i-1,(b[j-1]-b[j])/2-1/(double)(i*j)); 
-				}  else { 
-					gsl_matrix_set(sigma,i-1,j-1,(a[n-1]-a[i-1])/(double)(n-i)+(a[n-1]-a[j-1])/(double)(n-j)-(b[i-1]+b[j])/2-1/(double)(i*j));  
-					gsl_matrix_set(sigma,j-1,i-1,(a[n-1]-a[i-1])/(double)(n-i)+(a[n-1]-a[j-1])/(double)(n-j)-(b[i-1]+b[j])/2-1/(double)(i*j)); 
-				}
-			}
-		}
-	}
-
-        for(ca=1;ca<n;ca++){
-		for(cb=1;cb<n;cb++){
-			covmat[(cb-1)*(n-1)+ca-1]=gsl_matrix_get(sigma,ca-1,cb-1);
-		}
-	}
-
-
-//gsl_ran_poisson_pdf(k,mu)
-
-	free(a);
-	free(b);
-	
-	gsl_matrix_free(sigma);
-	return 1;
-}
+//int generate_covariance_matrix(double *covmat, int n)
+//{
+//	double s,*a,*b,bb,bz,zz,a2,*xi_null2,*xi_b2;/*a[n+1],b[n]*/
+//	int i,j,n2,ca,cb;
+//	double theta; /*temporary*/
+//	gsl_matrix *c,*invc,*sigma,*ct,*invct;
+//	/*struct test_r0 *opt;*/
+//
+//	if(n<2) return -10000;
+//
+//	n2=ceil((double)n/2);
+//	//debug
+//	//assert(n2*2==n);
+//	n=(int)n2*2;
+//
+//	a = (double *)calloc((unsigned long int)n+1,sizeof(double));
+//	b = (double *)calloc((unsigned long int)n,sizeof(double));
+//
+//	a[0]=0;
+//	a2=0;
+//	for(i=2;i<=n+1;i++){
+//		a[i-1]=a[i-2]+1/(double)(i-1);
+//	}
+//	for(i=1;i<n;i++){
+//		a2+=1/(double)(i*i);
+//		b[i-1]=2*(double)n*(a[n]-a[i-1])/(double)((n-i+1)*(n-i))-2/(double)(n-i);
+//	}
+//	b[n-1]=0;
+//	sigma=gsl_matrix_alloc(n-1,n-1);
+//	gsl_matrix_set_zero(sigma);
+//	for (i=1;i<n;i++){
+//		if (2*i<n) {
+//			gsl_matrix_set(sigma,i-1,i-1,b[i]);
+//		}  else {
+//			if (2*i>n) {
+//				gsl_matrix_set(sigma,i-1,i-1,b[i-1]-1/gsl_pow_2((double)i));
+//			}  else {
+//				gsl_matrix_set(sigma,i-1,i-1,(a[n-1]-a[i-1])*2/(double)(n-i)-1/gsl_pow_2((double)i));
+//			}
+//		}
+//	}
+//	for (i=1;i<n;i++){
+//		for (j=1;j<i;j++){
+//			if (i+j<n) {
+//				gsl_matrix_set(sigma,i-1,j-1,(b[i]-b[i-1])/2); gsl_matrix_set(sigma,j-1,i-1,(b[i]-b[i-1])/2);
+//			}  else {
+//				if (i+j>n) {
+//					gsl_matrix_set(sigma,i-1,j-1,(b[j-1]-b[j])/2-1/(double)(i*j));
+//					gsl_matrix_set(sigma,j-1,i-1,(b[j-1]-b[j])/2-1/(double)(i*j));
+//				}  else {
+//					gsl_matrix_set(sigma,i-1,j-1,(a[n-1]-a[i-1])/(double)(n-i)+(a[n-1]-a[j-1])/(double)(n-j)-(b[i-1]+b[j])/2-1/(double)(i*j));
+//					gsl_matrix_set(sigma,j-1,i-1,(a[n-1]-a[i-1])/(double)(n-i)+(a[n-1]-a[j-1])/(double)(n-j)-(b[i-1]+b[j])/2-1/(double)(i*j));
+//				}
+//			}
+//		}
+//	}
+//
+//        for(ca=1;ca<n;ca++){
+//		for(cb=1;cb<n;cb++){
+//			covmat[(cb-1)*(n-1)+ca-1]=gsl_matrix_get(sigma,ca-1,cb-1);
+//		}
+//	}
+//
+//
+////gsl_ran_poisson_pdf(k,mu)
+//
+//	free(a);
+//	free(b);
+//
+//	gsl_matrix_free(sigma);
+//	return 1;
+//}
 
 
 
@@ -464,16 +469,16 @@ void base_repetition(unsigned long w_s, int n_ind, unsigned long * pos_base, lon
 /*--------------------------------------------------------------*/
 
 
-int extract_outgroup_base(FILE * fasta_out, unsigned long pos, unsigned long oldpos, int fasta_length)
-{  
-  unsigned long diff;
-  ldiv_t pos_newlines, oldpos_newlines;
-  pos_newlines=ldiv(pos-1,(unsigned long)fasta_length);
-  oldpos_newlines=ldiv(oldpos-1,(unsigned long)fasta_length);
-  diff=pos-oldpos+pos_newlines.quot-oldpos_newlines.quot;
-  fseek(fasta_out,diff-1,SEEK_CUR);
-  return base_to_num(fgetc(fasta_out));
-};
+//int extract_outgroup_base(FILE * fasta_out, unsigned long pos, unsigned long oldpos, int fasta_length)
+//{
+//  unsigned long diff;
+//  ldiv_t pos_newlines, oldpos_newlines;
+//  pos_newlines=ldiv(pos-1,(unsigned long)fasta_length);
+//  oldpos_newlines=ldiv(oldpos-1,(unsigned long)fasta_length);
+//  diff=pos-oldpos+pos_newlines.quot-oldpos_newlines.quot;
+//  fseek(fasta_out,diff-1,SEEK_CUR);
+//  return base_to_num(fgetc(fasta_out));
+//};
 
 
 
@@ -509,49 +514,49 @@ int dmau_extract_outgroup_base(FILE * fasta_out, unsigned long pos, unsigned lon
 /*--------------------------------------------------------------*/
 
 
-void extract_stats(struct tests * test, struct combinatorial * comb, int n0, unsigned long n_ref, unsigned long n_alt_allele, unsigned long rd, unsigned long * n_alt, int ref_base, int alt_base, int out_base, int mb)
-{  
-  char is_out=0;
-  
-  if (out_base>0)
-    {
-      if (ref_base==out_base) { is_out=1; } 
-      else if (n_alt[out_base]==n_alt_allele) { is_out=2; };
-        // else is_out=3;
-    };
-  
-  test->cov+=rd;
-  test->l+=1;
-  test->den_t+=comb->d_t[rd-1];
-  test->den_p+=comb->d_p[rd-1];
-  if (is_out>0)
-    {
-      test->l_out+=1;
-      test->den_hl+=comb->d_hl[rd-1];
-      test->den_hq+=comb->d_hq[rd-1];     
-    };
-  // else printf("outgroup bases %u %u %u\n",is_out,out_base,ref_base);//debug
-  
-  if ((n_ref>mb)&&(n_ref<rd-mb))
-    {
-    test->s+=1;
-    test->num_t+=1;
-    test->num_p+=(double)(2*n_alt_allele*n_ref)/(double)(rd*(rd-1));
-    if (is_out==1){   
-      test->num_hl+=(double)(n_alt_allele)/(double)(rd-1);
-      test->num_hq+=(double)(n_alt_allele*n_alt_allele)/(double)(rd*(rd-1));
-    };
-    if (is_out==2)
-      {   
-	test->num_hl+=(double)(n_ref)/(double)(rd-1);
-	test->num_hq+=(double)(n_ref*n_ref)/(double)(rd*(rd-1));
-      };
-    };
-  
-  
-  DEB(printf("using data %u\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%u\t%u\t%u\n", n0, n_ref, n_alt_allele, rd, n_alt[0], n_alt[1],n_alt[2],n_alt[3],n_alt[4], ref_base, alt_base, out_base)); //debug
-  
-};
+//void extract_stats(struct tests * test, struct combinatorial * comb, int n0, unsigned long n_ref, unsigned long n_alt_allele, unsigned long rd, unsigned long * n_alt, int ref_base, int alt_base, int out_base, int mb)
+//{
+//  char is_out=0;
+//
+//  if (out_base>0)
+//    {
+//      if (ref_base==out_base) { is_out=1; }
+//      else if (n_alt[out_base]==n_alt_allele) { is_out=2; };
+//        // else is_out=3;
+//    };
+//
+//  test->cov+=rd;
+//  test->l+=1;
+//  test->den_t+=comb->d_t[rd-1];
+//  test->den_p+=comb->d_p[rd-1];
+//  if (is_out>0)
+//    {
+//      test->l_out+=1;
+//      test->den_hl+=comb->d_hl[rd-1];
+//      test->den_hq+=comb->d_hq[rd-1];
+//    };
+//  // else printf("outgroup bases %u %u %u\n",is_out,out_base,ref_base);//debug
+//
+//  if ((n_ref>mb)&&(n_ref<rd-mb))
+//    {
+//    test->s+=1;
+//    test->num_t+=1;
+//    test->num_p+=(double)(2*n_alt_allele*n_ref)/(double)(rd*(rd-1));
+//    if (is_out==1){
+//      test->num_hl+=(double)(n_alt_allele)/(double)(rd-1);
+//      test->num_hq+=(double)(n_alt_allele*n_alt_allele)/(double)(rd*(rd-1));
+//    };
+//    if (is_out==2)
+//      {
+//	test->num_hl+=(double)(n_ref)/(double)(rd-1);
+//	test->num_hq+=(double)(n_ref*n_ref)/(double)(rd*(rd-1));
+//      };
+//    };
+//
+//
+//  DEB(printf("using data %u\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%u\t%u\t%u\n", n0, n_ref, n_alt_allele, rd, n_alt[0], n_alt[1],n_alt[2],n_alt[3],n_alt[4], ref_base, alt_base, out_base)); //debug
+//
+//};
 
 
 
@@ -601,33 +606,33 @@ void extract_fst(struct fst_calc * fst, struct combinatorial_fst * combfst, int 
 };
 */
 
-//SNPS
-void extract_snps(unsigned long pos, FILE * output_snps, unsigned long * n_alt_1, unsigned long * n_alt_2, int mb)
-{
-  int i, c1, c2;
-  
-  c2=0;
-  c1=0;
-  for(i=1;i<5;i++)
-    {
-      if ((n_alt_1[i]+n_alt_2[i])>(n_alt_1[c1]+n_alt_2[c1]))
-	{
-	  c1=i;
-	};
-    };
-  if (c1==0) c2=1;
-  for(i=c2+1;i<5;i++)
-    {
-      if (((n_alt_1[i]+n_alt_2[i])>(n_alt_1[c2]+n_alt_2[c2]))&&(i!=c1))
-	{
-	  c2=i;
-	};
-    };
-  if((n_alt_1[c2]+n_alt_2[c2])>1)
-    {
-      fprintf(output_snps, "%lu\t%lu\t%lu\t%lu\t%lu\n", pos, n_alt_1[c2], n_alt_2[c2], n_alt_1[c1], n_alt_2[c1]);
-    };
-};
+////SNPS
+//void extract_snps(unsigned long pos, FILE * output_snps, unsigned long * n_alt_1, unsigned long * n_alt_2, int mb)
+//{
+//  int i, c1, c2;
+//
+//  c2=0;
+//  c1=0;
+//  for(i=1;i<5;i++)
+//    {
+//      if ((n_alt_1[i]+n_alt_2[i])>(n_alt_1[c1]+n_alt_2[c1]))
+//	{
+//	  c1=i;
+//	};
+//    };
+//  if (c1==0) c2=1;
+//  for(i=c2+1;i<5;i++)
+//    {
+//      if (((n_alt_1[i]+n_alt_2[i])>(n_alt_1[c2]+n_alt_2[c2]))&&(i!=c1))
+//	{
+//	  c2=i;
+//	};
+//    };
+//  if((n_alt_1[c2]+n_alt_2[c2])>1)
+//    {
+//      fprintf(output_snps, "%lu\t%lu\t%lu\t%lu\t%lu\n", pos, n_alt_1[c2], n_alt_2[c2], n_alt_1[c1], n_alt_2[c1]);
+//    };
+//};
 
 /*--------------------------------------------------------------*/
 /*--------------------------------------------------------------*/
@@ -861,107 +866,108 @@ int main(int argc, char *argv[])
     fasta_out=fopen(argv[3],"r");
     };*/
   /*for (;iscntrl(fgetc(fasta_ref))==0;) {};*/
-  fasta_length=0;
-  if (outgroup_available==1)
-    { fasta_length=0;
-      fasta_out=fopen(outgroup_file_name,"r");
-      for (;iscntrl(fgetc(fasta_out))==0;) 
-	{
-	};
-      // fasta_pos=ftell(fasta_out);
-      for (count_i=0;iscntrl(fgetc(fasta_out))==0;count_i++)
-	{
-	};
-      fasta_length=count_i;
-      rewind(fasta_out);   
-      for (;iscntrl(fgetc(fasta_out))==0;) 
-	{
-	};
-    };
-  //for (;ct!="\n";ct=fgetc(fasta_ref)) {};
-  //for (;ct!="\n";ct=fgetc(fasta_out)) {};
-  
-  /* Load combinatorics */
-  printf("Initializing combinatorics...\n");
-
-  vec_rd=(unsigned long *)malloc(max_cov*sizeof(unsigned long));
-  vec_s=(double *)malloc(max_cov*(n01-1)*sizeof(double));
-  vec_p=(double *)malloc(max_cov*(n01-1)*sizeof(double));
-  vec_h=(double *)malloc(max_cov*(n01-1)*sizeof(double));
-  vec0_s=(double *)malloc(max_cov*sizeof(double));
-  vec0_d=(double *)malloc(max_cov*sizeof(double));
-  vec0_h=(double *)malloc(max_cov*sizeof(double));
-  
-  comb1.d_t=(double *)malloc(max_cov*sizeof(double));
-  comb1.d_p=(double *)malloc(max_cov*sizeof(double));
-  comb1.d_hl=(double *)malloc(max_cov*sizeof(double));
-  comb1.d_hq=(double *)malloc(max_cov*sizeof(double));
-  /*comb2.d_t=(double *)malloc(max_cov*sizeof(double));
-  comb2.d_p=(double *)malloc(max_cov*sizeof(double));
-  comb2.d_hl=(double *)malloc(max_cov*sizeof(double));
-  comb2.d_hq=(double *)malloc(max_cov*sizeof(double));
-  combfst.c_s=(double **)malloc(max_cov*sizeof(double *));
-  for(count_i=0;count_i<max_cov;count_i++)
-    {
-      combfst.c_s[count_i]=(double *)malloc(max_cov*sizeof(double));
-    };*/
-  for(count_i=0;count_i<max_cov;count_i++)
-    {
-      comb1.d_t[count_i]=0;
-      comb1.d_p[count_i]=0;
-      comb1.d_hl[count_i]=0;
-      comb1.d_hq[count_i]=0;
-/*      comb2.d_t[count_i]=0;
-      comb2.d_p[count_i]=0;
-      comb2.d_hl[count_i]=0;
-      comb2.d_hq[count_i]=0;
-      for(count_j=0;count_j<max_cov;count_j++)
-	{
-	  combfst.c_s[count_i][count_j]=0;
-	};*/
-    };
-  for(rd=2*m_bar+1;rd<=max_cov;rd++)
-    {
-      int i,j,k;
-      comb1.d_p[rd-1]+=((double)n01-1)/(double)n01;
-      //comb2.d_p[rd-1]+=((double)n02-1)/(double)n02;
-      comb1.d_hl[rd-1]+=(double)rd*(n01-1)/(double)(n01*(rd-1));
-      //comb2.d_hl[rd-1]+=(double)rd*(n02-1)/(double)(n02*(rd-1));
-      comb1.d_hq[rd-1]+=(double)rd*((double)((n01-1)*(rd+1))/(double)(2*rd))/(double)(n01*(rd-1));
-      //comb2.d_hq[rd-1]+=(double)rd*((double)((n02-1)*(rd+1))/(double)(2*rd))/(double)(n02*(rd-1));  
-      for(k=1;k<n01;k++)
-	{
-	  comb1.d_t[rd-1]+=(1-gsl_pow_int((double)k/(double)n01,rd)-gsl_pow_int(1-(double)k/(double)n01,rd))/(double)k;
-	  for(lt=1;lt<=m_bar;lt++)
-	    {
-	      comb1.d_t[rd-1]+=-gsl_sf_choose(rd,lt)*gsl_pow_int((double)k/(double)n01,lt-1)*gsl_pow_int(1-(double)k/(double)n01,rd-lt-1)/(double)n01;
-	      comb1.d_p[rd-1]+=-2*gsl_sf_choose(rd-2,lt-1)*gsl_pow_int((double)k/(double)n01,lt-1)*gsl_pow_int(1-(double)k/(double)n01,rd-lt-1)/(double)n01;
-	      comb1.d_hq[rd-1]+=-1/(double)(n01*(rd-1))*((double)lt*gsl_sf_choose(rd-1,lt-1)*gsl_pow_int((double)k/(double)n01,lt-1)*gsl_pow_int(1-(double)k/(double)n01,rd-lt) +(double)(rd-lt)*gsl_sf_choose(rd-1,rd-lt-1)*gsl_pow_int((double)k/(double)n01,rd-lt-1)*gsl_pow_int(1-(double)k/(double)n01,lt));
-	    };
-	  comb1.d_hl[rd-1]+=((double)rd/(double)n01)*((1-2/((double)rd-1))*(double)k/(double)n01-1)
-	    *gsl_pow_int((double)k/(double)n01,rd-2);
-	  comb1.d_hq[rd-1]+=-(double)rd/(double)(n01*(rd-1))*(gsl_pow_int((double)k/(double)n01,rd-1));
-	  //(((double)rd-1)/(double)n01)*((1+(double)(rd+1)/gsl_pow_int((double)(rd-1),2))*(double)k/(double)n01-1)*gsl_pow_int((double)k/(double)n01,rd-2);
-	};
-      /*for(k=1;k<n02;k++)
-	{
-	  comb2.d_t[rd-1]+=(1-gsl_pow_int((double)k/(double)n02,rd)-gsl_pow_int(1-(double)k/(double)n02,rd))/(double)k;
-	  for(lt=1;lt<=m_bar;lt++)
-	    {
-	      comb2.d_t[rd-1]+=gsl_sf_choose(rd,lt)*gsl_pow_int((double)k/(double)n02,lt-1)*gsl_pow_int(1-(double)k/(double)n02,rd-lt-1)/(double)n02;
-	      comb2.d_p[rd-1]+=2*gsl_sf_choose(rd-2,lt-1)*gsl_pow_int((double)k/(double)n02,lt-1)*gsl_pow_int(1-(double)k/(double)n02,rd-lt-1);
-	    };
-	  comb2.d_hl[rd-1]+=((double)rd/(double)n02)*((1-2/((double)rd-1))*(double)k/(double)n02-1)
-	    *gsl_pow_int((double)k/(double)n02,rd-2);
-	  comb2.d_hq[rd-1]+=(((double)rd-1)/(double)n02)*((1+(double)(rd+1)/gsl_pow_int((double)(rd-1),2))*(double)k/(double)n02-1)*gsl_pow_int((double)k/(double)n02,rd-2);
-	  /*    comb2.d_t[rd-1]+=(1-gsl_pow_int((double)k/(double)n02,rd-1)*((double)k/(double)n02+(double)rd)-gsl_pow_int(1-(double)k/(double)n02,rd))/(double)k;
-		comb2.d_p[rd-1]+=(-2*gsl_pow_int((double)k/(double)n02,rd-2))/(double)n02;
-		comb2.d_hl[rd-1]+=((double)rd/(double)n02)*((1-2/((double)rd-1))*(double)k/(double)n02-1)
-		*gsl_pow_int((double)k/(double)n02,rd-2);
-		comb2.d_hq[rd-1]+=(((double)rd-1)/(double)n02)*((1+(double)(rd+1)/gsl_pow_int((double)(rd-1),2))*(double)k/(double)n02-1)*gsl_pow_int((double)k/(double)n02,rd-2);
-	  */
-	/*};*/
-    };   
+//try to increase speed
+//  fasta_length=0;
+//  if (outgroup_available==1)
+//    { fasta_length=0;
+//      fasta_out=fopen(outgroup_file_name,"r");
+//      for (;iscntrl(fgetc(fasta_out))==0;)
+//	{
+//	};
+//      // fasta_pos=ftell(fasta_out);
+//      for (count_i=0;iscntrl(fgetc(fasta_out))==0;count_i++)
+//	{
+//	};
+//      fasta_length=count_i;
+//      rewind(fasta_out);
+//      for (;iscntrl(fgetc(fasta_out))==0;)
+//	{
+//	};
+//    };
+//  //for (;ct!="\n";ct=fgetc(fasta_ref)) {};
+//  //for (;ct!="\n";ct=fgetc(fasta_out)) {};
+//
+//  /* Load combinatorics */
+//  printf("Initializing combinatorics...\n");
+//
+//  vec_rd=(unsigned long *)malloc(max_cov*sizeof(unsigned long));
+//  vec_s=(double *)malloc(max_cov*(n01-1)*sizeof(double));
+//  vec_p=(double *)malloc(max_cov*(n01-1)*sizeof(double));
+//  vec_h=(double *)malloc(max_cov*(n01-1)*sizeof(double));
+//  vec0_s=(double *)malloc(max_cov*sizeof(double));
+//  vec0_d=(double *)malloc(max_cov*sizeof(double));
+//  vec0_h=(double *)malloc(max_cov*sizeof(double));
+//
+//  comb1.d_t=(double *)malloc(max_cov*sizeof(double));
+//  comb1.d_p=(double *)malloc(max_cov*sizeof(double));
+//  comb1.d_hl=(double *)malloc(max_cov*sizeof(double));
+//  comb1.d_hq=(double *)malloc(max_cov*sizeof(double));
+//  /*comb2.d_t=(double *)malloc(max_cov*sizeof(double));
+//  comb2.d_p=(double *)malloc(max_cov*sizeof(double));
+//  comb2.d_hl=(double *)malloc(max_cov*sizeof(double));
+//  comb2.d_hq=(double *)malloc(max_cov*sizeof(double));
+//  combfst.c_s=(double **)malloc(max_cov*sizeof(double *));
+//  for(count_i=0;count_i<max_cov;count_i++)
+//    {
+//      combfst.c_s[count_i]=(double *)malloc(max_cov*sizeof(double));
+//    };*/
+//  for(count_i=0;count_i<max_cov;count_i++)
+//    {
+//      comb1.d_t[count_i]=0;
+//      comb1.d_p[count_i]=0;
+//      comb1.d_hl[count_i]=0;
+//      comb1.d_hq[count_i]=0;
+///*      comb2.d_t[count_i]=0;
+//      comb2.d_p[count_i]=0;
+//      comb2.d_hl[count_i]=0;
+//      comb2.d_hq[count_i]=0;
+//      for(count_j=0;count_j<max_cov;count_j++)
+//	{
+//	  combfst.c_s[count_i][count_j]=0;
+//	};*/
+//    };
+//  for(rd=2*m_bar+1;rd<=max_cov;rd++)
+//    {
+//      int i,j,k;
+//      comb1.d_p[rd-1]+=((double)n01-1)/(double)n01;
+//      //comb2.d_p[rd-1]+=((double)n02-1)/(double)n02;
+//      comb1.d_hl[rd-1]+=(double)rd*(n01-1)/(double)(n01*(rd-1));
+//      //comb2.d_hl[rd-1]+=(double)rd*(n02-1)/(double)(n02*(rd-1));
+//      comb1.d_hq[rd-1]+=(double)rd*((double)((n01-1)*(rd+1))/(double)(2*rd))/(double)(n01*(rd-1));
+//      //comb2.d_hq[rd-1]+=(double)rd*((double)((n02-1)*(rd+1))/(double)(2*rd))/(double)(n02*(rd-1));
+//      for(k=1;k<n01;k++)
+//	{
+//	  comb1.d_t[rd-1]+=(1-gsl_pow_int((double)k/(double)n01,rd)-gsl_pow_int(1-(double)k/(double)n01,rd))/(double)k;
+//	  for(lt=1;lt<=m_bar;lt++)
+//	    {
+//	      comb1.d_t[rd-1]+=-gsl_sf_choose(rd,lt)*gsl_pow_int((double)k/(double)n01,lt-1)*gsl_pow_int(1-(double)k/(double)n01,rd-lt-1)/(double)n01;
+//	      comb1.d_p[rd-1]+=-2*gsl_sf_choose(rd-2,lt-1)*gsl_pow_int((double)k/(double)n01,lt-1)*gsl_pow_int(1-(double)k/(double)n01,rd-lt-1)/(double)n01;
+//	      comb1.d_hq[rd-1]+=-1/(double)(n01*(rd-1))*((double)lt*gsl_sf_choose(rd-1,lt-1)*gsl_pow_int((double)k/(double)n01,lt-1)*gsl_pow_int(1-(double)k/(double)n01,rd-lt) +(double)(rd-lt)*gsl_sf_choose(rd-1,rd-lt-1)*gsl_pow_int((double)k/(double)n01,rd-lt-1)*gsl_pow_int(1-(double)k/(double)n01,lt));
+//	    };
+//	  comb1.d_hl[rd-1]+=((double)rd/(double)n01)*((1-2/((double)rd-1))*(double)k/(double)n01-1)
+//	    *gsl_pow_int((double)k/(double)n01,rd-2);
+//	  comb1.d_hq[rd-1]+=-(double)rd/(double)(n01*(rd-1))*(gsl_pow_int((double)k/(double)n01,rd-1));
+//	  //(((double)rd-1)/(double)n01)*((1+(double)(rd+1)/gsl_pow_int((double)(rd-1),2))*(double)k/(double)n01-1)*gsl_pow_int((double)k/(double)n01,rd-2);
+//	};
+//      /*for(k=1;k<n02;k++)
+//	{
+//	  comb2.d_t[rd-1]+=(1-gsl_pow_int((double)k/(double)n02,rd)-gsl_pow_int(1-(double)k/(double)n02,rd))/(double)k;
+//	  for(lt=1;lt<=m_bar;lt++)
+//	    {
+//	      comb2.d_t[rd-1]+=gsl_sf_choose(rd,lt)*gsl_pow_int((double)k/(double)n02,lt-1)*gsl_pow_int(1-(double)k/(double)n02,rd-lt-1)/(double)n02;
+//	      comb2.d_p[rd-1]+=2*gsl_sf_choose(rd-2,lt-1)*gsl_pow_int((double)k/(double)n02,lt-1)*gsl_pow_int(1-(double)k/(double)n02,rd-lt-1);
+//	    };
+//	  comb2.d_hl[rd-1]+=((double)rd/(double)n02)*((1-2/((double)rd-1))*(double)k/(double)n02-1)
+//	    *gsl_pow_int((double)k/(double)n02,rd-2);
+//	  comb2.d_hq[rd-1]+=(((double)rd-1)/(double)n02)*((1+(double)(rd+1)/gsl_pow_int((double)(rd-1),2))*(double)k/(double)n02-1)*gsl_pow_int((double)k/(double)n02,rd-2);
+//	  /*    comb2.d_t[rd-1]+=(1-gsl_pow_int((double)k/(double)n02,rd-1)*((double)k/(double)n02+(double)rd)-gsl_pow_int(1-(double)k/(double)n02,rd))/(double)k;
+//		comb2.d_p[rd-1]+=(-2*gsl_pow_int((double)k/(double)n02,rd-2))/(double)n02;
+//		comb2.d_hl[rd-1]+=((double)rd/(double)n02)*((1-2/((double)rd-1))*(double)k/(double)n02-1)
+//		*gsl_pow_int((double)k/(double)n02,rd-2);
+//		comb2.d_hq[rd-1]+=(((double)rd-1)/(double)n02)*((1+(double)(rd+1)/gsl_pow_int((double)(rd-1),2))*(double)k/(double)n02-1)*gsl_pow_int((double)k/(double)n02,rd-2);
+//	  */
+//	/*};*/
+//    };
   /* NOFST BEGIN
      for(rd1=2;rd1<=max_cov;rd1++)
      {
@@ -995,37 +1001,38 @@ int main(int argc, char *argv[])
     };  
   };
   END */ 
-  
-    for(rd=1;rd<=max_cov*(n01-1); rd++){
-	    vec_s[rd-1]=0;
-	    vec_p[rd-1]=0;
-	    vec_h[rd-1]=0;
-    };
-    
-  for(rd=2*m_bar+1;rd<=max_cov; rd++){
-    int k,covt;
-	    vec0_s[rd-1]=0;
-	    vec0_d[rd-1]=0;
-	    vec0_h[rd-1]=0;
-   for(k=1;k<n01;k++){
-     vec_s[(k-1)+(n01-1)*(rd-1)]=(1-gsl_pow_int((double)k/(double)n01,rd)-	gsl_pow_int(1-(double)k/(double)n01,rd));
-     vec_p[(k-1)+(n01-1)*(rd-1)]=(double)(2*k*(n01-k))/(double)(n01*n01);
-     vec_h[(k-1)+(n01-1)*(rd-1)]=(double)(k*k)/(double)(n01*n01)+(double)(k)/(double)(n01*(rd-1))-(double)rd/(double)(rd-1)*gsl_pow_int((double)(k)/(double)(n01),rd);
-     for(covt=1;covt<=m_bar;covt++){
-	      vec_s[(k-1)+(n01-1)*(rd-1)]+=-( gsl_ran_binomial_pdf(covt,	(double)k/(double)n01,rd)+gsl_ran_binomial_pdf(rd-covt,(double)k/(double)n01,rd)); 
-	      vec_p[(k-1)+(n01-1)*(rd-1)]+=-( 2*(double)(covt*(rd-covt))/(double)(rd*(rd-1))*(gsl_ran_binomial_pdf(covt,	(double)k/(double)n01,rd)+gsl_ran_binomial_pdf(rd-covt,(double)k/(double)n01,rd))); 
-	      vec_h[(k-1)+(n01-1)*(rd-1)]+=-( (double)(covt*covt)/(double)(rd*(rd-1))*gsl_ran_binomial_pdf(covt,	(double)k/(double)n01,rd)+(double)(rd-covt)*(double)(rd-covt)/(double)(rd*(rd-1))*gsl_ran_binomial_pdf(rd-covt,(double)k/(double)n01,rd)); 
-     };       
-     for(covt=m_bar+1;covt<=rd-m_bar-1;covt++){
-       vec0_s[rd-1]+=gsl_ran_binomial_pdf(covt,(double)k/(double)n01,rd)/k;
-       vec0_d[rd-1]+=gsl_pow_int(2*(double)(covt*(rd-covt))/(double)(rd*(rd-1))/comb1.d_p[rd-1]-1/comb1.d_t[rd-1],2)*gsl_ran_binomial_pdf(covt,(double)k/(double)n01,rd)/k;
-       vec0_h[rd-1]+=gsl_pow_int((double)(covt*covt)/(double)(rd*(rd-1))/comb1.d_hq[rd-1]-2*(double)(covt*(rd-covt))/(double)(rd*(rd-1))/comb1.d_p[rd-1],2)*gsl_ran_binomial_pdf(covt,(double)k/(double)n01,rd)/k;
-     };
-   };
-  };
-      
-  covmat=(double *)malloc((n01-1)*(n01-1)*sizeof(double));
-  generate_covariance_matrix(covmat,n01);
+
+//try to increase speed
+//    for(rd=1;rd<=max_cov*(n01-1); rd++){
+//	    vec_s[rd-1]=0;
+//	    vec_p[rd-1]=0;
+//	    vec_h[rd-1]=0;
+//    };
+//
+//  for(rd=2*m_bar+1;rd<=max_cov; rd++){
+//    int k,covt;
+//	    vec0_s[rd-1]=0;
+//	    vec0_d[rd-1]=0;
+//	    vec0_h[rd-1]=0;
+//   for(k=1;k<n01;k++){
+//     vec_s[(k-1)+(n01-1)*(rd-1)]=(1-gsl_pow_int((double)k/(double)n01,rd)-	gsl_pow_int(1-(double)k/(double)n01,rd));
+//     vec_p[(k-1)+(n01-1)*(rd-1)]=(double)(2*k*(n01-k))/(double)(n01*n01);
+//     vec_h[(k-1)+(n01-1)*(rd-1)]=(double)(k*k)/(double)(n01*n01)+(double)(k)/(double)(n01*(rd-1))-(double)rd/(double)(rd-1)*gsl_pow_int((double)(k)/(double)(n01),rd);
+//     for(covt=1;covt<=m_bar;covt++){
+//	      vec_s[(k-1)+(n01-1)*(rd-1)]+=-( gsl_ran_binomial_pdf(covt,	(double)k/(double)n01,rd)+gsl_ran_binomial_pdf(rd-covt,(double)k/(double)n01,rd));
+//	      vec_p[(k-1)+(n01-1)*(rd-1)]+=-( 2*(double)(covt*(rd-covt))/(double)(rd*(rd-1))*(gsl_ran_binomial_pdf(covt,	(double)k/(double)n01,rd)+gsl_ran_binomial_pdf(rd-covt,(double)k/(double)n01,rd)));
+//	      vec_h[(k-1)+(n01-1)*(rd-1)]+=-( (double)(covt*covt)/(double)(rd*(rd-1))*gsl_ran_binomial_pdf(covt,	(double)k/(double)n01,rd)+(double)(rd-covt)*(double)(rd-covt)/(double)(rd*(rd-1))*gsl_ran_binomial_pdf(rd-covt,(double)k/(double)n01,rd));
+//     };
+//     for(covt=m_bar+1;covt<=rd-m_bar-1;covt++){
+//       vec0_s[rd-1]+=gsl_ran_binomial_pdf(covt,(double)k/(double)n01,rd)/k;
+//       vec0_d[rd-1]+=gsl_pow_int(2*(double)(covt*(rd-covt))/(double)(rd*(rd-1))/comb1.d_p[rd-1]-1/comb1.d_t[rd-1],2)*gsl_ran_binomial_pdf(covt,(double)k/(double)n01,rd)/k;
+//       vec0_h[rd-1]+=gsl_pow_int((double)(covt*covt)/(double)(rd*(rd-1))/comb1.d_hq[rd-1]-2*(double)(covt*(rd-covt))/(double)(rd*(rd-1))/comb1.d_p[rd-1],2)*gsl_ran_binomial_pdf(covt,(double)k/(double)n01,rd)/k;
+//     };
+//   };
+//  };
+//
+//  covmat=(double *)malloc((n01-1)*(n01-1)*sizeof(double));
+//  generate_covariance_matrix(covmat,n01);
 
   
   /* Initialize variables */
@@ -1041,8 +1048,8 @@ int main(int argc, char *argv[])
   
   //fprintf(output_stat1, "window\tlength\tlength_outgroup\tread_depth\tS\tWatterson\tPi\tTajima_D\tvar_S\tvar_Watterson\tunnorm_FayWu_H\tFayWu_H\tdiv\tnonsyn_pol\tsyn_pol\tnonsyn_div\tsyn_div\talpha\n");
   //header for new output variables
-  fprintf(output_stat1, "window\tlength\tinVCF\trd\tn_ref\tn_alt\tref_frequency\tref_base\n");	  
-  printf("Counting...");
+  fprintf(output_stat1, "window\tinVCF\trd\tn_ref\tn_alt\tref_frequency\n");	  
+  printf("Counting...\n");
   /* Run across all bases */
   for(pos=1;(ct1!=EOF); pos++)
     {
@@ -1057,21 +1064,20 @@ int main(int argc, char *argv[])
           //reduce text written wo console
 	  //printf(" %lu ", n_window); 
 	  //if ( n_window % 10 == 0 ) printf("\n");
-	  
-	  test1.cov=0;
-	  test1.l=0;
-	  test1.l_out=0;
-	  test1.s=0;
-	  test1.num_t=0;
-	  test1.num_p=0;
-	  test1.num_hl=0;
-	  test1.num_hq=0;
-	  test1.den_t=0;
-	  test1.den_p=0;
-	  test1.den_hl=0;
-	  test1.den_hq=0;
-	  div=0;
 //try to increase speed
+//	  test1.cov=0;
+//	  test1.l=0;
+//	  test1.l_out=0;
+//	  test1.s=0;
+//	  test1.num_t=0;
+//	  test1.num_p=0;
+//	  test1.num_hl=0;
+//	  test1.num_hq=0;
+//	  test1.den_t=0;
+//	  test1.den_p=0;
+//	  test1.den_hl=0;
+//	  test1.den_hq=0;
+//	  div=0;
 //	  for(rd=1;rd<=max_cov; rd++){
 //	    vec_rd[rd-1]=0;
 //	    vec_s[rd-1]=0;
@@ -1112,23 +1118,23 @@ int main(int argc, char *argv[])
       if(ext_snps==1){
 	while (pos_snp<pos) pos_snp=extract_pos_snpinput(list_snps);
       };
-      
-      if(if_gff==1){
-	while (cds_end<pos) {
-	  char *line_gff;
-	  size_t n_line_gff;
-	  n_line_gff=1;
-	  line_gff=malloc(sizeof(char));
-	  if(getline(&line_gff,&n_line_gff,gff)!=-1){
-	  while ((line_gff[0]=='#')||(line_gff[0]=='\0')) {
-	    getline(&line_gff,&n_line_gff,gff);
-	  }; sscanf(line_gff,"%*s\t%*s\t%s\t%lu\t%lu\t%*s\t%c\t%u\t",feature,&cds_start,&cds_end,&strand,&phase_cds);
-	  if((strcmp(feature,"CDS")!=0)&&(strcmp(feature,"cds")!=0)&&(strcmp(feature,"SO:0000316")!=0)) {
-	    cds_end=0;
-	  };
-	  } else {cds_end=-1;};
-	};
-      };
+//try to increase speed
+//      if(if_gff==1){
+//	while (cds_end<pos) {
+//	  char *line_gff;
+//	  size_t n_line_gff;
+//	  n_line_gff=1;
+//	  line_gff=malloc(sizeof(char));
+//	  if(getline(&line_gff,&n_line_gff,gff)!=-1){
+//	  while ((line_gff[0]=='#')||(line_gff[0]=='\0')) {
+//	    getline(&line_gff,&n_line_gff,gff);
+//	  }; sscanf(line_gff,"%*s\t%*s\t%s\t%lu\t%lu\t%*s\t%c\t%u\t",feature,&cds_start,&cds_end,&strand,&phase_cds);
+//	  if((strcmp(feature,"CDS")!=0)&&(strcmp(feature,"cds")!=0)&&(strcmp(feature,"SO:0000316")!=0)) {
+//	    cds_end=0;
+//	  };
+//	  } else {cds_end=-1;};
+//	};
+//      };
       
           if (pos_base1<pos) 
 	{
@@ -1156,13 +1162,13 @@ int main(int argc, char *argv[])
 	  } else {
 	    out_base=ref_base1;
 	  };*/
-      if ((pos_base1==pos)&&(rd1>=min_cov)&&(rd1<=max_cov))
+        if ((pos_base1==pos)&&(rd1>=min_cov)&&(rd1<=max_cov))
 	{
-	  if(outgroup_available==1){
-	    out_base=extract_outgroup_base(fasta_out,pos,oldpos,fasta_length); //1;
-	  } else {
-	    out_base=0;
-	  };
+//	  if(outgroup_available==1){
+//	    out_base=extract_outgroup_base(fasta_out,pos,oldpos,fasta_length); //1;
+//	  } else {
+//	    out_base=0;
+//	  };
 	  if((ext_snps==1)&&(pos_snp!=pos)){
       //if not in vcf, set presence to 0
             called=0;
@@ -1240,6 +1246,7 @@ int main(int argc, char *argv[])
       ref_freq=n_ref1/(float)rd1;	
       };
       /* Print output */
+
       ct1=fgetc(bam_file1); ungetc(ct1,bam_file1);
       if ((pos==(n_window*window_size))||(ct1==EOF))
 	{
@@ -1328,8 +1335,8 @@ int main(int argc, char *argv[])
       //modify output
 	  //	  fprintf(output_stat1, "%lu\t%lu\t%lu\t%f\t%lu\t%f\t%f\t%f\t%f\t%f\n", n_window, test1.l, test1.l_out, cov1_val, test1.s, theta1_val, pi1_val, d1_val, h1_val,test1.den_t); 
 	  //fprintf(output_stat1, "%lu\t%lu\t%lu",n_window, test1.l, test1.l_out);
-      //print window number (= position) and length (0 (if it didn't pass a filter) or 1)
-	  fprintf(output_stat1, "%lu\t%lu",n_window, test1.l);
+      //print window number (= position)
+	  fprintf(output_stat1, "%lu",n_window);
           //if (test1.l>0) {
 	  //fprintf(output_stat1, "\t%f\t%lu\t%f\t%f\t%f\t%f\t%f", cov1_val, test1.s, theta1_val, pi1_val, d1_val/sqrt(var0_d+var_d), var0_s+var_s, (var0_s+var_s)/(test1.den_t*test1.den_t)); 
 	  //} else {
@@ -1356,7 +1363,7 @@ int main(int argc, char *argv[])
 	  //};
       //print presence status in vcf, read depth in bam, number of reference bases, number of alternative bases (of most common alternative) and frequency of reference allele
       fprintf(output_stat1, "\t%i\t%i\t%i\t%i\t%lf", called, rd1, n_ref1, n_alt_allele1, ref_freq);
-	  DEB(fprintf(output_stat1, "\tvars\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f",var0_s,var_s,var0_s/(test1.den_t*test1.den_t+0.000001),var_s/(test1.den_t*test1.den_t+0.000001),var0_d/(theta1_val),var_d/(theta1_val*theta1_val),var0_h/(theta1_val),var_h/(theta1_val*theta1_val));)
+//	  DEB(fprintf(output_stat1, "\tvars\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f",var0_s,var_s,var0_s/(test1.den_t*test1.den_t+0.000001),var_s/(test1.den_t*test1.den_t+0.000001),var0_d/(theta1_val),var_d/(theta1_val*theta1_val),var0_h/(theta1_val),var_h/(theta1_val*theta1_val));)
 	  fprintf(output_stat1, "\n");	    
 	  
 	  ////fprintf(output_stat2, "window %u\n",n_window); //debug COMPLETE!!!!!!!!!!!!!!!!

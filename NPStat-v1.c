@@ -819,7 +819,8 @@ int main(int argc, char *argv[])
   };
   
   strcpy(temp_file_name1,pileup_file_name);
-  strcpy(temp_file_name2,".stats");
+  //set output file name
+  strcpy(temp_file_name2,".count");
   strcat(temp_file_name1,temp_file_name2);
   output_stat1=fopen(temp_file_name1,"w");
   if (output_stat1 == NULL){
@@ -1053,8 +1054,9 @@ int main(int argc, char *argv[])
 	  
 	  // printf("inizialize\n"); //debug 
 	  
-	  printf(" %lu ", n_window); 
-	  if ( n_window % 10 == 0 ) printf("\n");
+          //reduce text written wo console
+	  //printf(" %lu ", n_window); 
+	  //if ( n_window % 10 == 0 ) printf("\n");
 	  
 	  test1.cov=0;
 	  test1.l=0;

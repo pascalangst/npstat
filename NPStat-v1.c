@@ -12,7 +12,9 @@
 window size fixed to 1 (="per site")
 -snpfile, -minqual & -min/maxcov filter are supported
 other options, like -nlowfreq, are no longer supported for improvement in speed
-to filter for that modify the snpfile accordingly
+to filter sites modify the snpfile accordingly
+ 
+this version outputs only sites of snpfile (unlike the last one). it is almost twice as fast as the last version
 */
 
 /* Code to extract pool statistics (theta, neutrality tests)
@@ -1136,7 +1138,7 @@ int main(int argc, char *argv[])
 //	};
 //      };
       
-          if (pos_base1<pos) 
+          if (pos_base1<pos)
 	{
 	  DEB(printf("reading new base from file 1\n")); //debug
 	  read_line_pileup(bam_file1, min_qual, min_mqual, &pos_base1, &n_ref1, &n_alt_allele1, &rd1, n_alt_1, &ref_base1, &alt_base1);
@@ -1248,7 +1250,9 @@ int main(int argc, char *argv[])
       /* Print output */
 
       ct1=fgetc(bam_file1); ungetc(ct1,bam_file1);
-      if ((pos==(n_window*window_size))||(ct1==EOF))
+      //if ((pos==(n_window*window_size))||(ct1==EOF))
+      //print only sites present in snpfile (halfs computing time)
+      if ((pos==(n_window*window_size))&&(called==1))
 	{
 //try to improve speed
 //	  double theta1_val, pi1_val, d1_val, h1_val, theta2_val, pi2_val, d2_val, h2_val, pia_val, fst_val, cov1_val, cov2_val, div_val, var_h, var_d, var_s, var0_s, var0_d, var0_h, vk_s[n01-1], vk_d[n01-1], vk_h[n01-1];
@@ -1372,9 +1376,10 @@ int main(int argc, char *argv[])
 	  ////fprintf(output_fst,  "window %u\n",n_window); //debug COMPLETE!!!!!!!!!!!!!!!!
 	  //  DEB(printf(output_fst, "%u\t%u\t%f\t%f\t%f\t%f\n", n_window, fst.l, pi1_val, pi2_val, pia_val, fst_val));
 	  //  fprintf(output_fst, "%u\t%u\t%f\t%f\t%f\t%f\n", n_window, fst.l, pi1_val, pi2_val, pia_val, fst_val);
-	  n_window++; 
+//	  n_window++;
 	};
-      
+//per site approach
+    n_window++;
       ////printf("%lu\t%lu\t%lu\t|\t%lu\t%lu\t%lu\t%lu\n",n_ref,n_alt_allele,rd,n_alt_A,n_alt_C,n_alt_G,n_alt_T); //debug
 
       //ct1=fgetc(bam_file1); ungetc(ct1,bam_file1);

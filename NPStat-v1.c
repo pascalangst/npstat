@@ -713,6 +713,7 @@ int main(int argc, char *argv[])
   //interger for presence in vcf (0 or 1) and frequency of reference allele
   int called;
   float ref_freq;
+  float alt_freq;
   
   /* Main part of the program */
   
@@ -1050,7 +1051,7 @@ int main(int argc, char *argv[])
   
   //fprintf(output_stat1, "window\tlength\tlength_outgroup\tread_depth\tS\tWatterson\tPi\tTajima_D\tvar_S\tvar_Watterson\tunnorm_FayWu_H\tFayWu_H\tdiv\tnonsyn_pol\tsyn_pol\tnonsyn_div\tsyn_div\talpha\n");
   //header for new output variables
-  fprintf(output_stat1, "window\tinVCF\trd\tn_ref\tn_alt\tref_frequency\n");	  
+  fprintf(output_stat1, "window\tinVCF\trd\tn_ref\tn_alt\tref_frequency\talt_frequency\n");
   printf("Counting...\n");
   /* Run across all bases */
   for(pos=1;(ct1!=EOF); pos++)
@@ -1095,6 +1096,7 @@ int main(int argc, char *argv[])
       called=0;
       //set frequency of referece allele to 1
       ref_freq=1;
+      alt_freq=0;
 	  
 /*	  test2.cov=0;
 	  test2.l=0;
@@ -1245,7 +1247,8 @@ int main(int argc, char *argv[])
 	      oldpos=pos;
 	    };*/
       //calculate reference allele frequency
-      ref_freq=n_ref1/(float)rd1;	
+      ref_freq=n_ref1/(float)rd1;
+      alt_freq=n_alt_allele1/(float)rd1;
       };
       /* Print output */
 
@@ -1366,7 +1369,7 @@ int main(int argc, char *argv[])
 	  //fprintf(output_stat1, "\tNA\tNA\tNA\tNA\tNA");	    
 	  //};
       //print presence status in vcf, read depth in bam, number of reference bases, number of alternative bases (of most common alternative) and frequency of reference allele
-      fprintf(output_stat1, "\t%i\t%i\t%i\t%i\t%lf", called, rd1, n_ref1, n_alt_allele1, ref_freq);
+      fprintf(output_stat1, "\t%i\t%i\t%i\t%i\t%lf\t%lf", called, rd1, n_ref1, n_alt_allele1, ref_freq, alt_freq);
 //	  DEB(fprintf(output_stat1, "\tvars\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f",var0_s,var_s,var0_s/(test1.den_t*test1.den_t+0.000001),var_s/(test1.den_t*test1.den_t+0.000001),var0_d/(theta1_val),var_d/(theta1_val*theta1_val),var0_h/(theta1_val),var_h/(theta1_val*theta1_val));)
 	  fprintf(output_stat1, "\n");	    
 	  
